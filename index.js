@@ -1,4 +1,5 @@
 const { v1: uuid } = require("uuid");
+const { GraphQLError } = require("graphql");
 
 const { ApolloServer } = require("@apollo/server");
 const { startStandaloneServer } = require("@apollo/server/standalone");
@@ -82,6 +83,10 @@ let books = [
 ];
 
 const typeDefs = `
+  enum hasBooks {
+    YES
+    NO
+  }
   type Author {
     id: ID!
     name: String!
@@ -99,7 +104,7 @@ const typeDefs = `
     bookCount: Int!
     authorCount: Int!
     allBooks(author: String, genre: String): [Book!]!
-    allAuthors: [Author!]!
+    allAuthors(hasBooks: hasBooks): [Author!]!
   }
   type Mutation {
     addBook(
@@ -108,10 +113,17 @@ const typeDefs = `
       author: String!
       genres: [String!]
     ): Book
+    editAuthor(name: String!, setBornTo: Int!): Author
   }
 `;
 
 const resolvers = {
+  Author: {
+    bookCount: (a) => {
+      return books.filter((book) => book.author === a.name).length;
+    },
+  },
+
   Query: {
     bookCount: () => books.length,
     authorCount: () => authors.length,
@@ -120,10 +132,34 @@ const resolvers = {
         .filter((book) => (args.author ? book.author === args.author : true))
         .filter((ab) => (args.genre ? ab.genres.includes(args.genre) : true)),
 
-    allAuthors: () => authors,
+    allAuthors: (root, args) => {
+      switch (args.hasBooks) {
+        case "YES": {
+          console.log(
+            "allAuthors: YES",
+            authors.map((a) => a.bookCount)
+          );
+          // TODO: author.bookCount on jostain syystä undefined?
+          return authors.filter((author) => author.bookCount > 0);
+        }
+        case "NO": {
+          return authors.filter((author) => author.bookCount === 0);
+        }
+        default: {
+          return authors;
+        }
+      }
+    },
   },
+
   Mutation: {
     addBook: (root, args) => {
+      if (!args.author) {
+        throw new GraphQLError("Author not found");
+      }
+      if (books.find((book) => book.title === args.title)) {
+        throw new GraphQLError("Book already exists");
+      }
       const book = {
         ...args,
         id: uuid(),
@@ -132,9 +168,22 @@ const resolvers = {
       authors = authors.concat({ name: book.author });
       return book;
     },
-  },
-  Author: {
-    bookCount: (a) => books.filter((book) => book.author === a.name).length,
+    editAuthor: (root, args) => {
+      if (!args.name) {
+        throw new GraphQLError("Author not given");
+      }
+      const author = authors.find((a) => a.name === args.name);
+
+      if (!author) {
+        return null;
+      }
+      const updatedAuthor = {
+        ...author,
+        born: args.setBornTo,
+      };
+      authors = authors.map((a) => (a.name === args.name ? updatedAuthor : a));
+      return updatedAuthor;
+    },
   },
 };
 
