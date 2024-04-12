@@ -129,6 +129,7 @@ const resolvers = {
         id: uuid(),
       };
       books = books.concat(book);
+      authors = authors.concat({ name: book.author });
       return book;
     },
   },
