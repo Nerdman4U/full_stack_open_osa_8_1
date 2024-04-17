@@ -4,8 +4,8 @@ const { GraphQLError } = require("graphql");
 const { ApolloServer } = require("@apollo/server");
 const { startStandaloneServer } = require("@apollo/server/standalone");
 
-const books = require("./data/books.js");
-const authors = require("./data/authors.js");
+// const books = require("./data/books.js");
+// const authors = require("./data/authors.js");
 
 const db = require("./db.js");
 const Book = require("./models/book.js");
@@ -21,6 +21,7 @@ const typeDefs = `
     name: String!
     born: Int
     bookCount: Int!
+    test: Int
   }
   type Book {
     id: ID!
@@ -34,6 +35,7 @@ const typeDefs = `
     authorCount: Int!
     allBooks(author: String, genre: String): [Book!]!
     allAuthors(hasBooks: hasBooks): [Author!]!
+    findAuthor(name: String!): Author
   }
   type Mutation {
     addBook(
@@ -48,43 +50,54 @@ const typeDefs = `
 `;
 
 const resolvers = {
-  Author: {
-    bookCount: async (a) => {
-      return Book.collection.filter((book) => book.author === a.name).length;
-    },
-  },
-
   Query: {
     bookCount: async () => Book.collection.countDocuments(),
     authorCount: async () => Author.collection.countDocuments(),
-    allBooks: async (root, args) =>
-      books
-        .filter((book) => (args.author ? book.author === args.author : true))
-        .filter((ab) => (args.genre ? ab.genres.includes(args.genre) : true)),
-
+    allBooks: async (root, args) => {
+      // TODO: cannot get nested query work...
+      // Book.find({ "author.name": args.author })
+      const books = await Book.find().populate("author").exec();
+      return books
+        .filter((book) =>
+          args.author ? book.author.name === args.author : true
+        )
+        .filter((ab) => (args.genre ? ab.genres.includes(args.genre) : true));
+    },
     allAuthors: async (root, args) => {
       switch (args.hasBooks) {
         case "YES": {
-          console.log(
-            "allAuthors: YES",
-            Author.collection.map((a) => a.bookCount)
-          );
-          // TODO: author.bookCount on jostain syystä undefined?
-          return Author.collection.filter((author) => author.bookCount > 0);
+          console.log("hasBooks: yes");
+          // return Author.find({ bookCount: { $gt: 0 } }); // <= ei toimi
+          // return Author.find({ name: "joni" }); // <= toimii
+          return Author.find({ test: 1 }); // <= ei löydä mitään
         }
         case "NO": {
-          return Author.collection.filter((author) => author.bookCount === 0);
-        }
-        default: {
-          return authors;
+          console.log("hasBooks: no");
+          return Author.find({ bookCount: { $eq: 0 } });
         }
       }
+    },
+    findAuthor: async (root, args) => {
+      return Author.findOne({ name: args.name });
+    },
+  },
+
+  Author: {
+    test: async () => {
+      console.log("test");
+      return 1;
+    },
+    bookCount: async (a) => {
+      // TODO: cannot get nested query work...
+      // return Book.find({ "author.name": a.name }).length || 0;
+      const books = await Book.find().populate("author");
+      console.log("bookCount", books.length);
+      return books.filter((book) => book.author.name === a.name).length;
     },
   },
 
   Mutation: {
     addBook: async (root, args) => {
-      console.log("addBook", args);
       if (!args.author) {
         throw new GraphQLError("Author not found");
       }
@@ -92,19 +105,17 @@ const resolvers = {
         throw new GraphQLError("Book already exists");
       }
       const book = new Book({ ...args });
-      // books = books.concat(book);
-      // authors = authors.concat({ name: book.author });
       return book.save();
     },
+
     addAuthor: async (root, args) => {
-      console.log("addAuthor", args);
       if (Author.collection.find((author) => author.name === args.name)) {
         throw new GraphQLError("Author already exists");
       }
       const author = new Author({ ...args });
-      // authors = authors.concat(author);
       return author.save();
     },
+
     editAuthor: (root, args) => {
       console.log("editAuthor", args);
       if (!args.name) {
