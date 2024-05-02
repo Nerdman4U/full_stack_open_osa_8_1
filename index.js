@@ -67,9 +67,21 @@ const resolvers = {
       switch (args.hasBooks) {
         case "YES": {
           console.log("hasBooks: yes");
-          // return Author.find({ bookCount: { $gt: 0 } }); // <= ei toimi
-          // return Author.find({ name: "joni" }); // <= toimii
-          return Author.find({ test: 1 }); // <= ei löydä mitään
+          return Author.find({ bookCount: { $gt: 0 } });
+          // it should find all authors that have books. However, empty list is returned and only one logline is at the console.
+          // => hasBooks: yes
+          // returns: []
+
+          //return Author.find({ test: 1 });
+          // it should find all authors since test is set to 1.
+          // => hasBooks: yes
+          // returns: []
+
+          //return Author.find({ name: "joni" });
+          // => hasBooks: yes
+          // => bookCount
+          // => test
+          // returns: correct
         }
         case "NO": {
           console.log("hasBooks: no");
@@ -83,16 +95,15 @@ const resolvers = {
   },
 
   Author: {
-    test: async () => {
+    test: async (root) => {
       console.log("test");
       return 1;
     },
-    bookCount: async (a) => {
-      // TODO: cannot get nested query work...
-      // return Book.find({ "author.name": a.name }).length || 0;
-      const books = await Book.find().populate("author");
-      console.log("bookCount", books.length);
-      return books.filter((book) => book.author.name === a.name).length;
+
+    bookCount: async (root) => {
+      console.log("bookCount");
+      const books = await Book.find({ author: root.id });
+      return books.length;
     },
   },
 
