@@ -67,25 +67,27 @@ const resolvers = {
       switch (args.hasBooks) {
         case "YES": {
           console.log("hasBooks: yes");
-          return Author.find({ bookCount: { $gt: 0 } });
-          // it should find all authors that have books. However, empty list is returned and only one logline is at the console.
-          // => hasBooks: yes
-          // returns: []
 
-          //return Author.find({ test: 1 });
-          // it should find all authors since test is set to 1.
-          // => hasBooks: yes
-          // returns: []
+          // 1. find all authors that have books
+          // return Author.find({ bookCount: { $gt: 0 } });
+          // => "hasBooks: yes"
+          // => []
 
+          // 2. find authors where test is 1
+          return Author.find({ test: 1 });
+          // => "hasBooks: yes"
+          // => []
+
+          // 3. find author by name
           //return Author.find({ name: "joni" });
-          // => hasBooks: yes
-          // => bookCount
-          // => test
-          // returns: correct
+          // => "hasBooks: yes"
+          // => "bookCount"
+          // => "test"
+          // => correct
         }
         case "NO": {
           console.log("hasBooks: no");
-          return Author.find({ bookCount: { $eq: 0 } });
+          return Author.find({ bookCount: 0 });
         }
       }
     },
