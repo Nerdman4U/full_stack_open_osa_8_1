@@ -56,7 +56,7 @@ const resolvers = {
     allBooks: async (root, args) => {
       // TODO: cannot get nested query work...
       // Book.find({ "author.name": args.author })
-      const books = await Book.find().populate("author").exec();
+      const books = await Book.find().populate("author");
       return books
         .filter((book) =>
           args.author ? book.author.name === args.author : true
@@ -64,30 +64,49 @@ const resolvers = {
         .filter((ab) => (args.genre ? ab.genres.includes(args.genre) : true));
     },
     allAuthors: async (root, args) => {
+      const authors = await Author.find();
+
       switch (args.hasBooks) {
         case "YES": {
           console.log("hasBooks: yes");
 
-          // 1. find all authors that have books
+          // 1. find all authors that have books (not working)
           // return Author.find({ bookCount: { $gt: 0 } });
           // => "hasBooks: yes"
           // => []
 
-          // 2. find authors where test is 1
-          return Author.find({ test: 1 });
+          // 2. find authors where test is 1 (not working)
+          //return Author.find({ test: 1 });
           // => "hasBooks: yes"
           // => []
 
-          // 3. find author by name
+          // 3. find author by name (working)
           //return Author.find({ name: "joni" });
           // => "hasBooks: yes"
           // => "bookCount"
           // => "test"
           // => correct
+          // 4. find all (working)
+          // Author.find()
+
+          const result = [];
+          for (const author of authors) {
+            const books = await Book.find({ author: author._id });
+            if (books.length > 0) {
+              result.push(author);
+            }
+          }
+          return result;
         }
         case "NO": {
-          console.log("hasBooks: no");
-          return Author.find({ bookCount: 0 });
+          const result = [];
+          for (const author of authors) {
+            const books = await Book.find({ author: author._id });
+            if (books.length === 0) {
+              result.push(author);
+            }
+          }
+          return result;
         }
       }
     },
