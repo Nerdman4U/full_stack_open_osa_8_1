@@ -1,5 +1,6 @@
 const { v1: uuid } = require("uuid");
 const { GraphQLError } = require("graphql");
+const jwt = require("jsonwebtoken");
 
 const { ApolloServer } = require("@apollo/server");
 const { startStandaloneServer } = require("@apollo/server/standalone");
@@ -10,8 +11,34 @@ const { startStandaloneServer } = require("@apollo/server/standalone");
 const db = require("./db.js");
 const Book = require("./models/book.js");
 const Author = require("./models/author.js");
+const User = require("./models/user.js");
 
 const typeDefs = `
+  type User {
+    username: String!
+    favoriteGenre: String!
+    id: ID!
+  }
+
+  type Token {
+    value: String!
+  }
+
+  type Query {
+    me: User
+  }
+
+  type Mutation {
+    createUser(
+      username: String!
+      favoriteGenre: String!
+    ): User
+    login(
+      username: String!
+      password: String!
+    ): Token
+  }
+
   enum hasBooks {
     YES
     NO
@@ -129,6 +156,36 @@ const resolvers = {
   },
 
   Mutation: {
+    createUser: async (root, args) => {
+      const user = new User({ ...args });
+      return user.save().catch((error) => {
+        throw new GraphQLError("Saving user failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.username,
+            error,
+          },
+        });
+      });
+    },
+
+    login: async (root, args) => {
+      const user = await User.findOne({ username: args.username });
+      if (!user || args.password !== "secret") {
+        throw new GraphQLError("Invalid username or password", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.password,
+          },
+        });
+      }
+      const userForToken = {
+        username: user.username,
+        id: user._id,
+      };
+      return { value: jwt.sign(userForToken, process.env.JWT_SECRET) };
+    },
+
     addBook: async (root, args) => {
       if (!args.author) {
         throw new GraphQLError("Author not found");
