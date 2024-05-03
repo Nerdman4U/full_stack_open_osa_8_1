@@ -137,15 +137,43 @@ const resolvers = {
         throw new GraphQLError("Book already exists");
       }
       const book = new Book({ ...args });
-      return book.save();
+
+      try {
+        book.save();
+      } catch (error) {
+        throw new GraphQLError("Saving book failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.title,
+            error,
+          },
+        });
+      }
+
+      return book;
     },
 
     addAuthor: async (root, args) => {
       if (Author.collection.find((author) => author.name === args.name)) {
         throw new GraphQLError("Author already exists");
       }
-      const author = new Author({ ...args });
-      return author.save();
+
+      let author;
+      author = new Author({ ...args });
+
+      try {
+        author.save();
+      } catch (error) {
+        throw new GraphQLError("Saving author failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.name,
+            error,
+          },
+        });
+      }
+
+      return author;
     },
 
     editAuthor: async (root, args) => {
@@ -155,10 +183,23 @@ const resolvers = {
       }
       const author = await Author.findOne({ name: args.name });
       if (!author) {
-        return null;
+        throw new GraphQLError("Author not found");
       }
       author.born = args.setBornTo;
-      return author.save();
+
+      try {
+        author.save();
+      } catch (error) {
+        throw new GraphQLError("Saving author failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.name,
+            error,
+          },
+        });
+      }
+
+      return author;
     },
   },
 };
