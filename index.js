@@ -148,22 +148,17 @@ const resolvers = {
       return author.save();
     },
 
-    editAuthor: (root, args) => {
+    editAuthor: async (root, args) => {
       console.log("editAuthor", args);
       if (!args.name) {
         throw new GraphQLError("Author not given");
       }
-      const author = authors.find((a) => a.name === args.name);
-
+      const author = await Author.findOne({ name: args.name });
       if (!author) {
         return null;
       }
-      const updatedAuthor = {
-        ...author,
-        born: args.setBornTo,
-      };
-      authors = authors.map((a) => (a.name === args.name ? updatedAuthor : a));
-      return updatedAuthor;
+      author.born = args.setBornTo;
+      return author.save();
     },
   },
 };
