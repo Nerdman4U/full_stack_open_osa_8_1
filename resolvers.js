@@ -1,7 +1,9 @@
+const author = require("./models/author.js");
 const Author = require("./models/author.js");
 const Book = require("./models/book.js");
 const User = require("./models/user.js");
 const { GraphQLError } = require("graphql");
+const jwt = require("jsonwebtoken");
 
 const resolvers = {
   Query: {
@@ -124,6 +126,8 @@ const resolvers = {
     },
 
     addBook: async (root, args, context) => {
+      console.log("addBook");
+
       if (!context.currentUser) {
         throw new GraphQLError("Not authenticated", {
           extensions: {
@@ -135,10 +139,16 @@ const resolvers = {
       if (!args.author) {
         throw new GraphQLError("Author not found");
       }
+
+      const author = await Author.findOne({ name: args.author });
+      if (!author) {
+        throw new GraphQLError("Author not found");
+      }
+
       if (Book.collection.find((book) => book.title === args.title)) {
         throw new GraphQLError("Book already exists");
       }
-      const book = new Book({ ...args });
+      const book = new Book({ ...args, author: author._id });
 
       try {
         book.save();
@@ -152,6 +162,7 @@ const resolvers = {
         });
       }
 
+      console.log("addBook() book:", book);
       return book;
     },
 
